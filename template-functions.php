@@ -204,90 +204,10 @@ if ( ! function_exists( 'netzen_add_product_list_item_categories' ) ) {
 	}
 }
 
-if ( ! function_exists( 'netzen_convert_price_to_ethereum' ) ) {
-
-    function netzen_convert_price_to_ethereum() {
-
-        $apiCoinCapRates = 'https://api.coincap.io/v2/rates';
-
-        $httpResponse = wp_remote_get( $apiCoinCapRates );
-
-        //parse returned JSON response to assoc array
-        $httpBody = is_array( $httpResponse ) ? json_decode( $httpResponse['body'], true ) : array();
-
-        //is response an error or if response code is something different than ok?
-        if ( is_wp_error( $httpResponse ) || ( isset( $httpBody['meta']['code'] ) && $httpBody['meta']['code'] !== 200 ) ) {
-            return false;
-        }
-
-        $data = $httpBody['data'];
-
-        $currency = get_woocommerce_currency();
-        $currency_id = '';
-        $rates = array();
-
-        foreach ( $data as $d ) {
-            if ( $d['symbol'] === $currency ) {
-                $currency_id = $d['id'];
-            }
-
-            if ( $d['id'] === 'ethereum' ) {
-                $rates['ethereum_rate_usd'] = $d['rateUsd'];
-            }
-
-            if ( $d['id'] === $currency_id ) {
-                $rates['currency_rate_usd'] = $d['rateUsd'];
-            }
-        }
-
-        $rates['currency'] = $currency;
-
-        return $rates;
-    }
-}
-
-if ( ! function_exists( 'netzen_get_currency_data' ) ) {
-
-    function netzen_get_currency_data() {
-
-        $transient_time = netzen_get_post_value_through_levels( 'qodef_woo_transient_time' );
-        if ( empty( $transient_time ) ) {
-            $transient_time = 7200;
-        }
-
-        $data = array();
-
-        if ( get_transient( 'netzen_currency_data' ) ) {
-
-            $transient_data = get_transient( 'netzen_currency_data' );
-
-            if ( $transient_data['currency'] !== get_woocommerce_currency() ) {
-                $data =  netzen_convert_price_to_ethereum();
-                set_transient( 'netzen_currency_data', $data, $transient_time );
-            } else {
-                $data = get_transient( 'netzen_currency_data' );
-            }
-        } else {
-
-            while( ! array_key_exists( 'ethereum_rate_usd', $data ) || ! array_key_exists( 'currency_rate_usd', $data ) || !isset( $data['ethereum_rate_usd'] ) || !isset( $data['currency_rate_usd'] ) ) {
-                $data =  netzen_convert_price_to_ethereum();
-            }
-
-            set_transient( 'netzen_currency_data', $data, $transient_time );
-        }
-
-        return $data;
-    }
-}
-
 /* price holder begin */
 
 if ( ! function_exists( 'netzen_add_product_list_price_holder' ) ) {
-    /**
-     * Function that render additional content around product info on main shop page
-     */
     function netzen_add_product_list_price_holder() {
-
         $product = netzen_woo_get_global_product();
         $price = $product->get_price();
 
@@ -297,7 +217,10 @@ if ( ! function_exists( 'netzen_add_product_list_price_holder' ) ) {
             $price_in_dollar = $price * $currency_data['currency_rate_usd'];
             $eth_price = round( $price_in_dollar / $currency_data['ethereum_rate_usd'], 5 );
 
-            echo '<div class="qodef-woo-price-holder"><span class="qodef-price-label">' . esc_html__('Price', 'netzen') . '</span><div class="qodef-woo-price-holder-inner"><span class="qodef-ethereum-price">' . netzen_get_svg_icon( 'ethereum' ) . esc_html( $eth_price ) . '</span>';
+            echo '<div class="qodef-woo-price-holder">
+                    <span class="qodef-price-label">' . esc_html__('Price', 'netzen') . '</span>
+                    <div class="qodef-woo-price-holder-inner">
+                        <span class="qodef-ethereum-price">' . netzen_get_svg_icon( 'ethereum' ) . esc_html( $eth_price ) . '</span>';
         }
     }
 }
